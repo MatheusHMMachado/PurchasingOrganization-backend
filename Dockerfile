@@ -13,6 +13,11 @@ RUN apt-get update \
     && docker-php-ext-install pdo_pgsql \
     && rm -rf /var/lib/apt/lists/*
 
+# mod_php so funciona com o MPM prefork; com mais de um MPM ativo o Apache nao sobe
+# (AH00534: More than one MPM loaded). O entrypoint repete a checagem ao iniciar.
+RUN a2dismod -f mpm_event mpm_worker || true \
+    && a2enmod mpm_prefork
+
 # Producao: sem erros na resposta; $_ENV preenchido com as variaveis do container
 RUN { \
       echo 'variables_order = "EGPCS"'; \
