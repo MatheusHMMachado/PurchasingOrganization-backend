@@ -104,6 +104,7 @@ class BatchController
 
             // Invalidate cache
             CacheService::getInstance()->delete('batches:list');
+            CacheService::getInstance()->deleteByPattern('dashboard:*');
 
             $response->getBody()->write(json_encode([
                 'success' => true,
@@ -141,6 +142,7 @@ class BatchController
 
             // Invalidate cache
             CacheService::getInstance()->delete('batches:list');
+            CacheService::getInstance()->deleteByPattern('dashboard:*');
 
             $response->getBody()->write(json_encode([
                 'success' => true,
@@ -178,6 +180,7 @@ class BatchController
             // Invalidate caches
             $cache = CacheService::getInstance();
             $cache->delete('batches:list');
+            $cache->deleteByPattern('dashboard:*');
             $cache->delete("batch:{$id}:items");
 
             $response->getBody()->write(json_encode([

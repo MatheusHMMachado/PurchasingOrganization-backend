@@ -70,7 +70,7 @@ class DashboardController
             }
 
             // --- Summary ---
-            $summary = $this->getSummary($pdo, $offerWhere, $offerParams, $batchId);
+            $summary = $this->getSummary($pdo, $offerWhere, $offerParams, $batchId, $itemId);
 
             // --- Price by ecommerce ---
             $priceByEcommerce = $this->getPriceByEcommerce($pdo, $offerWhere, $offerParams);
@@ -104,7 +104,7 @@ class DashboardController
         }
     }
 
-    private function getSummary(\PDO $pdo, string $offerWhere, array $offerParams, ?string $batchId): array
+    private function getSummary(\PDO $pdo, string $offerWhere, array $offerParams, ?string $batchId, ?string $itemId): array
     {
         // Total and active batches
         $batchWhere = '';
@@ -158,6 +158,8 @@ class DashboardController
         $stmt->execute($offerParams);
         $offerStats = $stmt->fetch();
 
+        $bestTotal = $this->getBestPriceTotal($pdo, $batchId, $itemId);
+
         return [
             'total_batches' => $totalBatches,
             'active_batches' => $activeBatches,
@@ -167,6 +169,51 @@ class DashboardController
             'best_price' => (float) $offerStats['best_price'],
             'worst_price' => (float) $offerStats['worst_price'],
             'potential_savings' => (float) $offerStats['potential_savings'],
+            'best_price_total' => $bestTotal['total'],
+            'priced_items' => $bestTotal['priced_items'],
+        ];
+    }
+
+    /**
+     * Sum of the best (lowest) price ever registered for each item.
+     *
+     * Only the batch/item filters apply: the price range filter is ignored on purpose,
+     * otherwise the "best" price of an item could be replaced by a worse one inside the range.
+     * Items without offers add nothing and are not counted in priced_items.
+     *
+     * @return array{total: float, priced_items: int}
+     */
+    private function getBestPriceTotal(\PDO $pdo, ?string $batchId, ?string $itemId): array
+    {
+        $conditions = [];
+        $params = [];
+        if ($batchId !== null) {
+            $conditions[] = 'i.batch_id = :batch_id';
+            $params['batch_id'] = (int) $batchId;
+        }
+        if ($itemId !== null) {
+            $conditions[] = 'o.item_id = :item_id';
+            $params['item_id'] = (int) $itemId;
+        }
+        $where = $conditions ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+        $sql = "SELECT
+                    COALESCE(SUM(best.price), 0) AS total,
+                    COUNT(*) AS priced_items
+                FROM (
+                    SELECT o.item_id, MIN(o.price) AS price
+                    FROM offers o
+                    JOIN items i ON o.item_id = i.id
+                    {$where}
+                    GROUP BY o.item_id
+                ) best";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $row = $stmt->fetch();
+
+        return [
+            'total' => round((float) $row['total'], 2),
+            'priced_items' => (int) $row['priced_items'],
         ];
     }
 

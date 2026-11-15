@@ -126,6 +126,7 @@ class ItemController
             $cache = CacheService::getInstance();
             $cache->delete("batch:{$batchId}:items");
             $cache->delete('batches:list');
+            $cache->deleteByPattern('dashboard:*');
 
             $response->getBody()->write(json_encode([
                 'success' => true,
@@ -164,6 +165,7 @@ class ItemController
             // Invalidate cache
             $cache = CacheService::getInstance();
             $cache->delete("batch:{$existing['batch_id']}:items");
+            $cache->deleteByPattern('dashboard:*');
 
             $response->getBody()->write(json_encode([
                 'success' => true,
@@ -203,6 +205,7 @@ class ItemController
             $cache->delete("batch:{$existing['batch_id']}:items");
             $cache->delete("item:{$id}:offers");
             $cache->delete('batches:list');
+            $cache->deleteByPattern('dashboard:*');
 
             $response->getBody()->write(json_encode([
                 'success' => true,
