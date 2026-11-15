@@ -1,5 +1,5 @@
 {
-    "name": "app/Purchasing-Organization",
+    "name": "app/purchasing-organization",
     "description": "PurchasingOrganization - Purchasing Organization and tracking API",
     "type": "project",
     "license": "MIT",

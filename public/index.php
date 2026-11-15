@@ -3,6 +3,7 @@
 use Slim\Factory\AppFactory;
 use App\Middleware\CorsMiddleware;
 use App\Middleware\JsonMiddleware;
+use App\Middleware\InternalTokenMiddleware;
 use App\Controllers\BatchController;
 use App\Controllers\ItemController;
 use App\Controllers\OfferController;
@@ -10,7 +11,8 @@ use App\Controllers\DashboardController;
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Load environment variables
+// Load environment variables: real ones (container/Railway) win over the local .env file
+$_ENV = array_merge(getenv(), $_ENV);
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->safeLoad();
 
@@ -23,6 +25,7 @@ $app->addBodyParsingMiddleware();
 // Add middleware
 $app->add(new JsonMiddleware());
 $app->add(new CorsMiddleware());
+$app->add(new InternalTokenMiddleware());
 
 // Add Slim error middleware
 $app->addErrorMiddleware(
@@ -32,6 +35,12 @@ $app->addErrorMiddleware(
 );
 
 // --- Routes ---
+
+// Health check (Railway); does not touch the database
+$app->get('/api/health', function ($request, $response) {
+    $response->getBody()->write(json_encode(['success' => true, 'data' => ['status' => 'ok']]));
+    return $response;
+});
 
 // Dashboard
 $app->get('/api/dashboard', [DashboardController::class, 'index']);

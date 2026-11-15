@@ -18,13 +18,22 @@ class CacheService
         $port = $_ENV['REDIS_PORT'] ?? '6379';
         $this->prefix = $_ENV['REDIS_PREFIX'] ?? 'pt:';
 
+        $params = [
+            'scheme' => 'tcp',
+            'host' => $host,
+            'port' => (int) $port,
+            'read_write_timeout' => 2,
+        ];
+        // Railway's Redis requires auth; local Docker Redis has none
+        if (!empty($_ENV['REDIS_PASSWORD'])) {
+            $params['password'] = $_ENV['REDIS_PASSWORD'];
+            if (!empty($_ENV['REDIS_USER'])) {
+                $params['username'] = $_ENV['REDIS_USER'];
+            }
+        }
+
         try {
-            $this->client = new RedisClient([
-                'scheme' => 'tcp',
-                'host' => $host,
-                'port' => (int) $port,
-                'read_write_timeout' => 2,
-            ]);
+            $this->client = new RedisClient($params);
             // Test connection
             $this->client->ping();
             $this->available = true;
