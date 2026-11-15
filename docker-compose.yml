@@ -1,0 +1,47 @@
+# Infraestrutura local: PostgreSQL + Redis
+# Uso: docker compose --env-file .env up -d  (ou rode setup.ps1)
+# As credenciais (DB_NAME, DB_USER, DB_PASS) vem de .env.
+#
+# As migrations em database/migrations rodam automaticamente
+# apenas na PRIMEIRA criação do volume. Para recriar o banco do zero:
+#   docker compose --env-file .env down -v
+#   docker compose --env-file .env up -d
+
+# Fixed project name: keeps the existing containers and the pgdata volume
+# (created when this file lived in the PurchasingOrganization folder)
+name: purchasingorganization
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: PurchasingOrganization-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: PurchasingOrganization-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
