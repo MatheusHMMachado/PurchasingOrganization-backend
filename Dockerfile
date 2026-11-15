@@ -50,8 +50,8 @@ COPY . .
 # Remove CRLF caso o script tenha sido salvo no Windows
 RUN sed -i 's/[[:cntrl:]]$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh
 
-# Railway injeta PORT; 8080 e o padrao local. "Listen 8080" escuta em IPv4 e IPv6
-# (a rede privada do Railway usa IPv6).
+# Railway injeta PORT; 8080 e o padrao local. O entrypoint gera o ports.conf
+# com IPv4 e IPv6 (a rede privada do Railway usa IPv6).
 ENV PORT=8080 APP_ENV=production APP_DEBUG=false
 EXPOSE 8080
 
