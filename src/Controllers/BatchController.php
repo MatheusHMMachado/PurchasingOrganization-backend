@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use App\Support\Errors;
+use App\Support\Validator;
 use App\Models\Batch;
 use App\Models\Item;
 use App\Services\CacheService;
@@ -45,7 +47,7 @@ class BatchController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -78,7 +80,7 @@ class BatchController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -90,14 +92,9 @@ class BatchController
     public function store(Request $request, Response $response): Response
     {
         try {
-            $data = $request->getParsedBody();
-
-            if (empty($data['name'])) {
-                $response->getBody()->write(json_encode([
-                    'success' => false,
-                    'error' => 'Name is required',
-                ]));
-                return $response->withStatus(400);
+            $data = (array) ($request->getParsedBody() ?? []);
+            if ($errors = Validator::batch($data)) {
+                return Validator::badRequest($response, $errors);
             }
 
             $batch = Batch::create($data);
@@ -114,7 +111,7 @@ class BatchController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -137,7 +134,10 @@ class BatchController
                 return $response->withStatus(404);
             }
 
-            $data = $request->getParsedBody();
+            $data = (array) ($request->getParsedBody() ?? []);
+            if ($errors = Validator::batch($data, true)) {
+                return Validator::badRequest($response, $errors);
+            }
             $batch = Batch::update($id, $data);
 
             // Invalidate cache
@@ -152,7 +152,7 @@ class BatchController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -191,7 +191,7 @@ class BatchController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }

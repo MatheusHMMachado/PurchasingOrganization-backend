@@ -121,13 +121,43 @@ class CacheService
         }
 
         try {
-            $keys = $this->client->keys($this->prefix . $pattern);
-            if (!empty($keys)) {
-                $this->client->del($keys);
+            // SCAN walks the keyspace in small steps; KEYS blocks Redis while it reads every key
+            $batch = [];
+            foreach (new \Predis\Collection\Iterator\Keyspace($this->client, $this->prefix . $pattern, 200) as $key) {
+                $batch[] = $key;
+                if (count($batch) >= 200) {
+                    $this->client->del($batch);
+                    $batch = [];
+                }
+            }
+            if ($batch) {
+                $this->client->del($batch);
             }
             return true;
         } catch (Exception $e) {
             return false;
+        }
+    }
+
+    /**
+     * Atomically increments a counter, setting its TTL on creation.
+     * Returns the new value, or null when Redis is unavailable.
+     */
+    public function increment(string $key, int $ttl): ?int
+    {
+        if (!$this->available) {
+            return null;
+        }
+
+        try {
+            $fullKey = $this->prefix . $key;
+            $value = (int) $this->client->incr($fullKey);
+            if ($value === 1) {
+                $this->client->expire($fullKey, $ttl);
+            }
+            return $value;
+        } catch (Exception $e) {
+            return null;
         }
     }
 }

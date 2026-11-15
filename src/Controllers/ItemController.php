@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use App\Support\Errors;
+use App\Support\Validator;
 use App\Models\Item;
 use App\Models\Batch;
 use App\Models\Offer;
@@ -52,7 +54,7 @@ class ItemController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -85,7 +87,7 @@ class ItemController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -109,14 +111,9 @@ class ItemController
                 return $response->withStatus(404);
             }
 
-            $data = $request->getParsedBody();
-
-            if (empty($data['name'])) {
-                $response->getBody()->write(json_encode([
-                    'success' => false,
-                    'error' => 'Name is required',
-                ]));
-                return $response->withStatus(400);
+            $data = (array) ($request->getParsedBody() ?? []);
+            if ($errors = Validator::item($data)) {
+                return Validator::badRequest($response, $errors);
             }
 
             $data['batch_id'] = $batchId;
@@ -136,7 +133,7 @@ class ItemController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -159,7 +156,10 @@ class ItemController
                 return $response->withStatus(404);
             }
 
-            $data = $request->getParsedBody();
+            $data = (array) ($request->getParsedBody() ?? []);
+            if ($errors = Validator::item($data, true)) {
+                return Validator::badRequest($response, $errors);
+            }
             $item = Item::update($id, $data);
 
             // Invalidate cache
@@ -175,7 +175,7 @@ class ItemController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -215,7 +215,7 @@ class ItemController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }

@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use App\Support\Errors;
+use App\Support\Validator;
 use App\Services\DatabaseService;
 use App\Services\CacheService;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -21,6 +23,22 @@ class DashboardController
             $itemId = $params['item_id'] ?? null;
             $minPrice = $params['min_price'] ?? null;
             $maxPrice = $params['max_price'] ?? null;
+
+            // Reject malformed filters up front (huge ids used to reach PostgreSQL as errors)
+            $errors = [];
+            foreach (['batch_id' => $batchId, 'item_id' => $itemId] as $name => $value) {
+                if ($value !== null && Validator::id($value) === null) {
+                    $errors[] = "{$name} must be a positive integer";
+                }
+            }
+            foreach (['min_price' => $minPrice, 'max_price' => $maxPrice] as $name => $value) {
+                if ($value !== null && (!is_numeric($value) || (float) $value < 0 || (float) $value > Validator::MAX_PRICE)) {
+                    $errors[] = "{$name} must be a valid price";
+                }
+            }
+            if ($errors) {
+                return Validator::badRequest($response, $errors);
+            }
 
             // Cache key based on filter params
             $filterKey = md5(json_encode([
@@ -98,7 +116,7 @@ class DashboardController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }

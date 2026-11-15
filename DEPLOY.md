@@ -33,7 +33,7 @@
 
 | Repositório | Arquivo | Função |
 |---|---|---|
-| backend | `Dockerfile` | PHP 8.2 + Apache + pdo_pgsql; escuta em `$PORT` (IPv4 e IPv6) |
+| backend | `Dockerfile` | PHP 8.4 + Apache + pdo_pgsql; escuta em `$PORT` (IPv4 e IPv6) |
 | backend | `docker-entrypoint.sh` + `database/migrate.php` | aplica migrations pendentes a cada deploy |
 | backend | `railway.json` | build por Dockerfile, health check em `/api/health` |
 | frontend | `Dockerfile` | build do Vite + Caddy |
@@ -95,9 +95,39 @@ REDIS_PORT=${{Redis.REDISPORT}}
 REDIS_USER=${{Redis.REDISUSER}}
 REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
 REDIS_PREFIX=pt:
+
+# Apenas para criar o primeiro usuario (veja abaixo); podem ser removidas depois
+AUTH_USERNAME=<seu usuario>
+AUTH_PASSWORD_HASH=<hash gerado abaixo>
 ```
 
 `PGHOST` e `REDISHOST` já apontam para os endereços privados (`*.railway.internal`).
+
+**Usuários e login.** As contas ficam na tabela `users` do banco. A senha nunca é guardada
+em texto, só o hash (bcrypt). Todos os usuários veem as mesmas remessas.
+
+- **Primeiro usuário:** no primeiro deploy, se a tabela estiver vazia, ele é criado a partir
+  de `AUTH_USERNAME` e `AUTH_PASSWORD_HASH`. Para gerar o hash, rode na pasta do backend:
+  ```bash
+  php bin/hash-password.php
+  ```
+  Cole o resultado em `AUTH_PASSWORD_HASH`, do jeito que saiu. Depois do primeiro login,
+  apague as duas variáveis: elas não são mais usadas.
+- **Demais usuários:** são criados no app, em **Usuários**. Lá também se troca usuário e
+  senha. Toda alteração pede a senha atual de quem está fazendo a mudança.
+- **Esqueceu todas as senhas?** Rode no shell do serviço backend (`railway ssh`) ou
+  localmente:
+  ```bash
+  php bin/create-user.php
+  ```
+  Ele cria o usuário ou redefine a senha de um usuário existente.
+- **Sessão no navegador:** dura no máximo 1 dia a partir do login.
+- **Sessão no PWA instalado:** é renovada a cada uso, então o app continua conectado.
+- **Trocar a senha de alguém:** desconecta essa pessoa de todos os aparelhos. Quem troca a
+  própria senha continua conectado só no aparelho atual.
+- **Tentativas erradas:** 5 por IP a cada 15 minutos, contando login e senha atual errada.
+  Depois disso, aquele IP fica bloqueado por 15 minutos.
+
 Salve e clique em **Deploy**. Nos logs devem aparecer `[migrate] 001_create_tables.sql
 aplicada` e depois o Apache iniciando. O health check em `/api/health` deve ficar verde.
 
@@ -121,20 +151,25 @@ aplicada` e depois o Apache iniciando. O health check em `/api/health` deve fica
 |---|---|
 | `https://<frontend>.up.railway.app` | app abre e é instalável (HTTPS do Railway) |
 | `https://<frontend>.up.railway.app/api/health` | `{"success":true,...}` (passou pelo proxy) |
-| criar uma remessa no app | salva e aparece após recarregar |
+| abrir o app sem login | tela de login; `/api/batches` responde 401 |
+| criar uma remessa no app (após o login) | salva e aparece após recarregar |
 | serviço `backend` → Settings → Networking | nenhum domínio público |
 | `Postgres` / `Redis` → Networking | sem TCP proxy |
 
 ### 7. Deploys seguintes
 
 Cada `git push` na branch `master` de um repositório faz o deploy só daquele serviço.
-Novas migrations: crie `database/migrations/002_xxx.sql`. O próximo deploy do backend
+Novas migrations: crie `database/migrations/004_xxx.sql` (próximo número livre). O próximo deploy do backend
 aplica o arquivo uma única vez, e o controle fica na tabela `schema_migrations`.
 
 ## Desenvolvimento local
 
-Nada muda. `INTERNAL_TOKEN` vazio (ou ausente) no `.env` desativa a verificação do token,
-e o `vite.config.ts` continua fazendo proxy de `/api` para `localhost:8080`.
+`INTERNAL_TOKEN` vazio (ou ausente) no `.env` desativa a verificação do token, e o
+`vite.config.ts` continua fazendo proxy de `/api` para `localhost:8080`.
+
+O login também vale localmente. Defina no `.env` do backend `AUTH_USERNAME` e
+`AUTH_PASSWORD_HASH` (este entre aspas simples, porque o hash contém `$`), e aplique as
+migrations novas com `php database/migrate.php`.
 
 Para testar as imagens localmente, simulando a rede privada:
 

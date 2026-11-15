@@ -73,3 +73,21 @@ foreach ($files as $file) {
 }
 
 echo "[migrate] banco atualizado\n";
+
+// First user: created once from AUTH_USERNAME + AUTH_PASSWORD_HASH when the users table is
+// empty. After that, accounts are managed in the app (Usuários) and the variables can go.
+$hasUsers = $pdo->query("SELECT to_regclass('public.users') IS NOT NULL")->fetchColumn()
+    && (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+
+if (!$hasUsers) {
+    $seedUser = trim((string) ($_ENV['AUTH_USERNAME'] ?? ''));
+    $seedHash = (string) ($_ENV['AUTH_PASSWORD_HASH'] ?? '');
+    if ($seedUser !== '' && password_get_info($seedHash)['algo'] !== null) {
+        $pdo->prepare('INSERT INTO users (username, password_hash) VALUES (:u, :h)')
+            ->execute(['u' => $seedUser, 'h' => $seedHash]);
+        echo "[migrate] usuario inicial '{$seedUser}' criado a partir de AUTH_USERNAME/AUTH_PASSWORD_HASH\n";
+    } else {
+        fwrite(STDERR, "[migrate] nenhum usuario cadastrado: ninguem consegue entrar. Defina AUTH_USERNAME e "
+            . "AUTH_PASSWORD_HASH (php bin/hash-password.php) ou rode: php bin/create-user.php\n");
+    }
+}

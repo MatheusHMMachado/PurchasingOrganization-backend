@@ -1,12 +1,15 @@
 # API PHP (Slim) servida pelo Apache.
 # No Railway este servico NAO tem dominio publico: so o frontend fala com ele pela rede privada.
 
-FROM composer:2 AS vendor
+# Imagem base do PHP; pode ser trocada no build local (--build-arg PHP_IMAGE=...)
+ARG PHP_IMAGE=php:8.4-apache
+
+FROM composer:2.8 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
-FROM php:8.2-apache
+FROM ${PHP_IMAGE}
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq-dev \

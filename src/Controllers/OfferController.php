@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+use App\Support\Errors;
+use App\Support\Validator;
 use App\Models\Offer;
 use App\Models\Item;
 use App\Services\CacheService;
@@ -51,7 +53,7 @@ class OfferController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -77,7 +79,7 @@ class OfferController
 
             $data = $request->getParsedBody();
 
-            $errors = self::validate($data ?? []);
+            $errors = self::validate((array) ($data ?? []));
 
             if (!empty($errors)) {
                 $response->getBody()->write(json_encode([
@@ -105,7 +107,7 @@ class OfferController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -141,7 +143,7 @@ class OfferController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -164,7 +166,7 @@ class OfferController
                 return $response->withStatus(404);
             }
 
-            $data = $request->getParsedBody() ?? [];
+            $data = (array) ($request->getParsedBody() ?? []);
             $errors = self::validate($data);
 
             if (!empty($errors)) {
@@ -188,7 +190,7 @@ class OfferController
         } catch (\Exception $e) {
             $response->getBody()->write(json_encode([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => Errors::report($e),
             ]));
             return $response->withStatus(500);
         }
@@ -199,17 +201,8 @@ class OfferController
      */
     private static function validate(array $data): array
     {
-        $errors = [];
-        if (empty($data['ecommerce'])) {
-            $errors[] = 'ecommerce is required';
-        }
-        if (!isset($data['price']) || !is_numeric($data['price']) || (float) $data['price'] < 0) {
-            $errors[] = 'price is required and must be a non-negative number';
-        }
-        if (empty($data['link']) || !filter_var($data['link'], FILTER_VALIDATE_URL)) {
-            $errors[] = 'link is required and must be a valid URL';
-        }
-        return $errors;
+        // Lengths, price range and http(s)-only links (see Validator::offer)
+        return Validator::offer($data);
     }
 
     /**
